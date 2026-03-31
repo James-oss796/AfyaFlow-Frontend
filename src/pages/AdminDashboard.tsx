@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import DashboardCard from '../components/ui/DashboardCard';
 import SignatureButton from '../components/ui/SignatureButton';
 import StatusChip from '../components/ui/StatusChip';
+import ReportModal from '../components/modals/ReportModal';
+import { useData } from '../context/DataContext';
+import { useNotification } from '../context/NotificationContext';
 
-const data = [
+
+const volumeData = [
   { name: '08:00', value: 15 },
   { name: '10:00', value: 25 },
   { name: '11:00', value: 35 },
@@ -16,35 +20,48 @@ const data = [
   { name: '19:00', value: 10 },
 ];
 
-const specialists = [
-  { name: 'Dr. Anthony Maina', dept: 'Cardiologist', station: 'Emergency Room', shift: '08:00 - 16:00', status: 'In Surgery', variant: 'error' },
-  { name: 'Dr. Linda Kamau', dept: 'Pediatrician', station: 'Outpatient', shift: '09:00 - 18:00', status: 'On Call', variant: 'success' },
-  { name: 'Dr. Caleb Otieno', dept: 'Neurologist', station: 'Ward C (Neuro)', shift: '12:00 - 20:00', status: 'On Call', variant: 'success' },
-];
+const STATUS_VARIANT_MAP: Record<string, string> = {
+  'in-surgery': 'error',
+  'on-call': 'success',
+  'available': 'success',
+  'off-duty': 'neutral',
+};
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { patients, doctors } = useData();
+  const { notify } = useNotification();
+  const [showReportModal, setShowReportModal] = useState(false);
+
+  // Live stats from context
+  const todayPatients = patients.length;
+  const queueCount = patients.filter(p => p.status === 'queued').length;
+  const inProgress = patients.filter(p => p.status === 'in-progress').length;
 
   return (
     <div className="space-y-12">
+
       {/* Dashboard Header */}
       <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-[2.75rem] font-extrabold text-primary tracking-tight leading-none mb-2">Hospital Overview</h1>
-          <p className="text-on-surface-variant text-lg font-medium">Real-time clinical operations and revenue monitoring.</p>
+        <div className="mb-4">
+          <h1 className="text-3xl font-extrabold tracking-tight text-primary">Hospital Overview</h1>
+          <p className="text-on-surface-variant mt-1">Real-time clinical operations and revenue monitoring.</p>
         </div>
         <div className="flex gap-4">
-          <SignatureButton 
+          <SignatureButton
             variant="clear"
             onClick={() => navigate('/register')}
           >
             Register Staff
           </SignatureButton>
-          <SignatureButton variant="clear">Generate Report</SignatureButton>
-          <SignatureButton icon="add">New Admission</SignatureButton>
+          <SignatureButton
+            variant="clear"
+            onClick={() => setShowReportModal(true)}
+          >
+            Generate Report
+          </SignatureButton>
         </div>
       </div>
-
 
       {/* 3-Column Bento KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -56,13 +73,13 @@ const AdminDashboard: React.FC = () => {
             <span className="text-secondary font-bold text-sm bg-secondary-container/30 px-2 py-1 rounded">+12% vs yest.</span>
           </div>
           <p className="text-on-surface-variant font-medium text-sm mb-1 uppercase tracking-widest">Today's Patients</p>
-          <p className="text-5xl font-extrabold text-primary">142</p>
+          <p className="text-5xl font-extrabold text-primary">{todayPatients}</p>
           <div className="mt-6 flex gap-2">
             <div className="h-1 flex-1 bg-surface-container rounded-full overflow-hidden">
-              <div className="h-full bg-secondary w-3/4"></div>
+              <div className="h-full bg-secondary" style={{ width: `${Math.min((todayPatients / 200) * 100, 100)}%` }} />
             </div>
           </div>
-          <p className="mt-2 text-xs text-on-surface-variant">Capacity: 75% utilized</p>
+          <p className="mt-2 text-xs text-on-surface-variant">Capacity: {Math.round((todayPatients / 200) * 100)}% utilized</p>
         </DashboardCard>
 
         <DashboardCard className="border-l-4 border-l-primary p-8">
@@ -73,25 +90,11 @@ const AdminDashboard: React.FC = () => {
             <span className="text-primary font-bold text-sm">Active</span>
           </div>
           <p className="text-on-surface-variant font-medium text-sm mb-1 uppercase tracking-widest">Active Queues</p>
-          <p className="text-5xl font-extrabold text-primary">28</p>
+          <p className="text-5xl font-extrabold text-primary">{queueCount + inProgress}</p>
           <div className="mt-6 text-sm text-on-surface-variant flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-error animate-pulse" />
             Avg. wait time: 14 mins
           </div>
-        </DashboardCard>
-
-        <DashboardCard className="signature-gradient text-white relative border-none">
-          <div className="absolute top-0 right-0 p-4 opacity-10">
-            <span className="material-symbols-outlined text-8xl">payments</span>
-          </div>
-          <div className="flex justify-between items-start mb-6">
-            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-              <span className="material-symbols-outlined">account_balance_wallet</span>
-            </div>
-          </div>
-          <p className="text-white/70 font-medium text-sm mb-1 uppercase tracking-widest">Revenue (KES)</p>
-          <p className="text-4xl font-extrabold">842,500</p>
-          <p className="mt-6 text-sm text-white/80">Net projection for Q3: KES 4.2M</p>
         </DashboardCard>
       </div>
 
@@ -105,27 +108,16 @@ const AdminDashboard: React.FC = () => {
               <span className="px-3 py-1 text-xs font-medium text-on-surface-variant hover:bg-white/50 rounded transition-all cursor-pointer">Last 7 Days</span>
             </div>
           </div>
-          
+
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data}>
+              <BarChart data={volumeData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#64748B', fontSize: 10, fontWeight: 700 }} 
-                />
-                <Tooltip 
-                  cursor={{ fill: 'rgba(0, 80, 80, 0.05)' }} 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 10, fontWeight: 700 }} />
+                <Tooltip cursor={{ fill: 'rgba(0, 80, 80, 0.05)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                  {data.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={entry.value === Math.max(...data.map(d => d.value)) ? '#005050' : '#0050504d'} 
-                    />
+                  {volumeData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.value === Math.max(...volumeData.map(d => d.value)) ? '#005050' : '#0050504d'} />
                   ))}
                 </Bar>
               </BarChart>
@@ -147,7 +139,7 @@ const AdminDashboard: React.FC = () => {
           </div>
         </DashboardCard>
 
-        {/* Right Sidebar: Quick Actions */}
+        {/* Right Sidebar */}
         <div className="lg:col-span-4 space-y-8">
           <DashboardCard className="p-6">
             <h4 className="font-bold text-primary mb-6 flex items-center gap-2">
@@ -166,7 +158,7 @@ const AdminDashboard: React.FC = () => {
                     <span className="font-bold text-primary">{item.value}</span>
                   </div>
                   <div className="w-full h-1 bg-surface-container rounded-full overflow-hidden">
-                    <div className={`h-full ${item.color}`} style={{ width: `${item.progress}%` }}></div>
+                    <div className={`h-full ${item.color}`} style={{ width: `${item.progress}%` }} />
                   </div>
                 </div>
               ))}
@@ -186,12 +178,12 @@ const AdminDashboard: React.FC = () => {
         <div className="flex justify-between items-center mb-8">
           <h3 className="text-2xl font-extrabold text-primary tracking-tight">On-Call Specialists</h3>
           <div className="flex items-center gap-4 text-sm font-medium text-on-surface-variant">
-            <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-error"></span> In Surgery</span>
-            <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-secondary"></span> On Call</span>
-            <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-slate-300"></span> Off Duty</span>
+            <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-error" /> In Surgery</span>
+            <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-secondary" /> On Call</span>
+            <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-outline" /> Available</span>
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -204,26 +196,34 @@ const AdminDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-container">
-              {specialists.map((doc) => (
-                <tr key={doc.name} className="group hover:bg-surface-container-low transition-all">
+              {doctors.map((doc) => (
+                <tr key={doc.id} className="group hover:bg-surface-container-low transition-all">
                   <td className="py-5">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center font-bold text-primary">
-                        {doc.name.split(' ').map(n => n[0]).join('')}
+                        {doc.name.split(' ').filter(n => !n.startsWith('Dr')).map(n => n[0]).join('').slice(0, 2)}
                       </div>
                       <div>
                         <p className="font-bold text-on-surface">{doc.name}</p>
-                        <p className="text-xs text-on-surface-variant">{doc.dept}</p>
+                        <p className="text-xs text-on-surface-variant">{doc.specialization}</p>
                       </div>
                     </div>
                   </td>
                   <td className="py-5 text-sm">{doc.station}</td>
                   <td className="py-5 text-sm">{doc.shift}</td>
                   <td className="py-5">
-                    <StatusChip label={doc.status} variant={doc.variant as any} dot />
+                    <StatusChip
+                      label={doc.status.replace('-', ' ')}
+                      variant={STATUS_VARIANT_MAP[doc.status] as any}
+                      dot
+                    />
                   </td>
                   <td className="py-5 text-right">
-                    <button className="text-primary hover:bg-primary-fixed p-2 rounded-lg transition-all">
+                    <button 
+                      onClick={() => notify(`Calling ${doc.name}...`, 'info', 'Connecting')}
+                      className="text-primary hover:bg-primary/10 p-2 rounded-lg transition-all"
+                      title="Call Specialist"
+                    >
                       <span className="material-symbols-outlined">call</span>
                     </button>
                   </td>
@@ -233,6 +233,11 @@ const AdminDashboard: React.FC = () => {
           </table>
         </div>
       </DashboardCard>
+
+      {/* Modals */}
+      {showReportModal && (
+        <ReportModal onClose={() => setShowReportModal(false)} />
+      )}
     </div>
   );
 };

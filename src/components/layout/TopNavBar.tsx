@@ -3,23 +3,19 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Search, Bell, HelpCircle } from 'lucide-react';
 
-interface TopNavBarProps {
-  user?: {
-    name: string;
-    role: string;
-    avatar: string;
-  };
-}
-
-const TopNavBar: React.FC<TopNavBarProps> = ({ 
-  user = {
-    name: 'Jane Kamau',
-    role: 'Senior Receptionist',
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAQzQB6g0TNPQ39-QdmGdQnzejMeL87fcwpl2pzyY8FzAYQcMJXrJ1W-YZ9I13j30GzCvbym5jqBuhCk-jSmuzIt7Vr6jMVTiByLnRjJ-hm68eMxq23ad07pG6ciUd3TmAMVb18wPEZ7OFS5s_ovvs_TTVKVZ8Qr3i7BI-2NN4Z138177EkaU29qlvR3Y8hvxulgCw4u5oYaSUfl0fyX7tQqnRYA4j31n4xq4oY5SnltwuKLF4Hs3HBHi4YTNsdDk09llqdzm659Iw'
-  }
-}) => {
-  const { logout } = useAuth();
+const TopNavBar: React.FC = () => {
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const displayUser = user ? {
+    name: user.fullName,
+    role: user.role,
+    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName)}&background=0D9488&color=fff`
+  } : {
+    name: 'Guest User',
+    role: 'Unauthorized',
+    avatar: 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
+  };
 
   const handleLogout = () => {
     logout();
@@ -52,13 +48,13 @@ const TopNavBar: React.FC<TopNavBarProps> = ({
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3 group">
             <div className="text-right">
-              <p className="text-xs font-bold text-on-surface group-hover:text-primary transition-colors">{user.name}</p>
-              <p className="text-[10px] text-on-surface-variant font-medium uppercase tracking-wider">{user.role}</p>
+              <p className="text-xs font-bold text-on-surface group-hover:text-primary transition-colors">{displayUser.name}</p>
+              <p className="text-[10px] text-on-surface-variant font-medium uppercase tracking-wider">{displayUser.role}</p>
             </div>
             <img 
               alt="User Avatar" 
               className="h-10 w-10 rounded-full border-2 border-primary-container/20 group-hover:border-primary transition-all object-cover" 
-              src={user.avatar}
+              src={displayUser.avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}
             />
           </div>
 
