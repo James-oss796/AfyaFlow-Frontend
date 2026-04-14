@@ -1,39 +1,27 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Activity, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { toast } from 'sonner';
+import { loginApi, roleToRoute } from '../../lib/api';
+import { setAuthSession } from '../../lib/authStorage';
 
 export function Login() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [userRole, setUserRole] = useState<'patient' | 'receptionist' | 'doctor' | 'admin'>('patient');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Mock login - in production, this would authenticate with backend
-    if (email && password) {
+
+    try {
+      const res = await loginApi({ email, password });
+      setAuthSession(res.accessToken, res.role, res.userId);
       toast.success('Login successful!');
-      
-      // Navigate based on role
-      switch (userRole) {
-        case 'patient':
-          navigate('/patient');
-          break;
-        case 'receptionist':
-          navigate('/receptionist');
-          break;
-        case 'doctor':
-          navigate('/doctor');
-          break;
-        case 'admin':
-          navigate('/admin');
-          break;
-      }
-    } else {
-      toast.error('Please fill in all fields');
+      navigate(roleToRoute(res.role));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Login failed';
+      toast.error("Login Failed");
     }
   };
 
@@ -52,57 +40,6 @@ export function Login() {
         {/* Login Form */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <form onSubmit={handleLogin} className="space-y-5">
-            {/* Role Selection */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Login As</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setUserRole('patient')}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${
-                    userRole === 'patient' 
-                      ? 'bg-primary text-primary-foreground border-primary' 
-                      : 'bg-white text-foreground border-border hover:bg-muted'
-                  }`}
-                >
-                  Patient
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUserRole('receptionist')}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${
-                    userRole === 'receptionist' 
-                      ? 'bg-primary text-primary-foreground border-primary' 
-                      : 'bg-white text-foreground border-border hover:bg-muted'
-                  }`}
-                >
-                  Receptionist
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUserRole('doctor')}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${
-                    userRole === 'doctor' 
-                      ? 'bg-primary text-primary-foreground border-primary' 
-                      : 'bg-white text-foreground border-border hover:bg-muted'
-                  }`}
-                >
-                  Doctor
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUserRole('admin')}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${
-                    userRole === 'admin' 
-                      ? 'bg-primary text-primary-foreground border-primary' 
-                      : 'bg-white text-foreground border-border hover:bg-muted'
-                  }`}
-                >
-                  Admin
-                </button>
-              </div>
-            </div>
-
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium mb-2">

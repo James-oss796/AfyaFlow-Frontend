@@ -1,11 +1,17 @@
-import { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Activity, Bell, LogOut, PhoneCall, CheckCircle, XCircle, User } from 'lucide-react';
 import { QueueCard } from '../components/QueueCard';
 import { toast } from 'sonner';
+import { clearAccessToken, getCurrentRole } from '../../lib/authStorage';
 
 export function DoctorDashboard() {
   const navigate = useNavigate();
+  useEffect(() => {
+    if (getCurrentRole() !== 'DOCTOR') {
+      navigate('/login');
+    }
+  }, [navigate]);
   const [currentPatient, setCurrentPatient] = useState({
     queueNumber: '8',
     patientName: 'Alice Johnson',
@@ -96,7 +102,10 @@ export function DoctorDashboard() {
               </div>
             </div>
             <button 
-              onClick={() => navigate('/')}
+              onClick={() => {
+                clearAccessToken();
+                navigate('/');
+              }}
               className="p-2 hover:bg-muted rounded-lg transition-colors"
             >
               <LogOut className="w-5 h-5 text-muted-foreground" />

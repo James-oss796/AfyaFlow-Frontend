@@ -1,103 +1,104 @@
-import { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Activity, ArrowLeft, Filter, Search } from 'lucide-react';
 import { QueueCard } from '../components/QueueCard';
 import { StatusBadge } from '../components/StatusBadge';
 import { toast } from 'sonner';
+import {
+  callQueueApi,
+  completeQueueApi,
+  getQueueApi,
+  missedQueueApi,
+  type QueueApiResponse,
+} from '../../lib/api';
+import { getCurrentRole } from '../../lib/authStorage';
 
 export function QueueManagement() {
   const navigate = useNavigate();
   const [filterStatus, setFilterStatus] = useState<'all' | 'waiting' | 'called' | 'completed' | 'missed'>('all');
 
-  const [queueData, setQueueData] = useState([
-    {
-      queueNumber: '6',
-      patientName: 'Michael Chen',
-      department: 'General Medicine',
-      status: 'completed' as const,
-      waitingTime: '45 min',
-    },
-    {
-      queueNumber: '7',
-      patientName: 'Sarah Thompson',
-      department: 'Pediatrics',
-      status: 'completed' as const,
-      waitingTime: '30 min',
-    },
-    {
-      queueNumber: '8',
-      patientName: 'Alice Johnson',
-      department: 'Cardiology',
-      status: 'called' as const,
-      waitingTime: '5 min',
-    },
-    {
-      queueNumber: '9',
-      patientName: 'Bob Martinez',
-      department: 'Cardiology',
-      status: 'waiting' as const,
-      waitingTime: '10 min',
-    },
-    {
-      queueNumber: '10',
-      patientName: 'Carol White',
-      department: 'Pediatrics',
-      status: 'waiting' as const,
-      waitingTime: '15 min',
-    },
-    {
-      queueNumber: '11',
-      patientName: 'David Lee',
-      department: 'Orthopedics',
-      status: 'waiting' as const,
-      waitingTime: '20 min',
-    },
-    {
-      queueNumber: '12',
-      patientName: 'Emma Davis',
-      department: 'Dental',
-      status: 'waiting' as const,
-      waitingTime: '25 min',
-    },
-    {
-      queueNumber: '5',
-      patientName: 'James Wilson',
-      department: 'Cardiology',
-      status: 'missed' as const,
-      waitingTime: '50 min',
-    },
-  ]);
+  const [queueData, setQueueData] = useState<QueueApiResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleCallPatient = (queueNumber: string) => {
-    setQueueData(queueData.map(q => 
-      q.queueNumber === queueNumber ? { ...q, status: 'called' as const } : q
-    ));
-    toast.success(`Called patient #${queueNumber}`);
+  const refreshQueue = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getQueueApi();
+      setQueueData(data);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load queue';
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleCompletePatient = (queueNumber: string) => {
-    setQueueData(queueData.map(q => 
-      q.queueNumber === queueNumber ? { ...q, status: 'completed' as const } : q
-    ));
-    toast.success(`Patient #${queueNumber} marked as completed`);
+  // useEffect(() => {
+  //   const role = getCurrentRole();
+  //   if (!role || !['DOCTOR', 'RECEPTIONIST', 'ADMIN'].includes(role)) {
+  //     navigate('/login');
+  //     return;
+  //   }
+  //   void refreshQueue();
+  // }, [navigate]);
+
+  const updateLocal = (updated: QueueApiResponse) => {
+    setQueueData((prev) => prev.map((q) => (q.id === updated.id ? updated : q)));
   };
 
-  const handleMissedPatient = (queueNumber: string) => {
-    setQueueData(queueData.map(q => 
-      q.queueNumber === queueNumber ? { ...q, status: 'missed' as const } : q
-    ));
-    toast.error(`Patient #${queueNumber} marked as missed`);
+  const handleCallPatient = async (queueId: number, queueNumber: number) => {
+    try {
+      const updated = await callQueueApi(queueId);
+      updateLocal(updated);
+      toast.success(`Called patient #${queueNumber}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to call patient';
+      toast.error(message);
+    }
   };
 
-  const filteredQueue = filterStatus === 'all' 
-    ? queueData 
-    : queueData.filter(q => q.status === filterStatus);
+  const handleCompletePatient = async (queueId: number, queueNumber: number) => {
+    try {
+      const updated = await completeQueueApi(queueId);
+      updateLocal(updated);
+      toast.success(`Patient #${queueNumber} marked as completed`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to complete patient';
+      toast.error(message);
+    }
+  };
+
+  const handleMissedPatient = async (queueId: number, queueNumber: number) => {
+    try {
+      const updated = await missedQueueApi(queueId);
+      updateLocal(updated);
+      toast.error(`Patient #${queueNumber} marked as missed`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to mark missed';
+      toast.error(message);
+    }
+  };
+
+  const normalized = useMemo(() => {
+    return queueData.map((q) => {
+      const patientName = q.patient ? `${q.patient.firstName} ${q.patient.lastName}` : 'Unknown patient';
+      const department = q.department?.name || 'Unknown department';
+      const status = (q.status || 'waiting') as 'waiting' | 'called' | 'completed' | 'missed';
+      // TODO: compute from timestamps once backend stores them
+      const waitingTime = '-';
+      return { ...q, patientName, department, status, waitingTime };
+    });
+  }, [queueData]);
+
+  const filteredQueue = filterStatus === 'all'
+    ? normalized
+    : normalized.filter(q => q.status === filterStatus);
 
   const stats = {
-    waiting: queueData.filter(q => q.status === 'waiting').length,
-    called: queueData.filter(q => q.status === 'called').length,
-    completed: queueData.filter(q => q.status === 'completed').length,
-    missed: queueData.filter(q => q.status === 'missed').length,
+    waiting: normalized.filter(q => q.status === 'waiting').length,
+    called: normalized.filter(q => q.status === 'called').length,
+    completed: normalized.filter(q => q.status === 'completed').length,
+    missed: normalized.filter(q => q.status === 'missed').length,
   };
 
   return (
@@ -147,6 +148,9 @@ export function QueueManagement() {
       {/* Main Content */}
       <main className="p-6">
         <div className="max-w-7xl mx-auto">
+          {isLoading && (
+            <div className="mb-4 text-sm text-muted-foreground">Loading queue…</div>
+          )}
           {/* Filters */}
           <div className="bg-white rounded-xl border border-border p-6 mb-6">
             <div className="flex items-center justify-between gap-4">
@@ -220,7 +224,7 @@ export function QueueManagement() {
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredQueue.map((patient) => (
-                  <tr key={patient.queueNumber} className="hover:bg-muted/50">
+                  <tr key={patient.id} className="hover:bg-muted/50">
                     <td className="px-6 py-4">
                       <span className="text-2xl font-bold text-primary">#{patient.queueNumber}</span>
                     </td>
@@ -236,7 +240,7 @@ export function QueueManagement() {
                       <div className="flex gap-2">
                         {patient.status === 'waiting' && (
                           <button
-                            onClick={() => handleCallPatient(patient.queueNumber)}
+                            onClick={() => void handleCallPatient(patient.id, patient.queueNumber)}
                             className="px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors text-sm"
                           >
                             Call
@@ -245,13 +249,13 @@ export function QueueManagement() {
                         {patient.status === 'called' && (
                           <>
                             <button
-                              onClick={() => handleCompletePatient(patient.queueNumber)}
+                              onClick={() => void handleCompletePatient(patient.id, patient.queueNumber)}
                               className="px-3 py-1 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90 transition-colors text-sm"
                             >
                               Complete
                             </button>
                             <button
-                              onClick={() => handleMissedPatient(patient.queueNumber)}
+                              onClick={() => void handleMissedPatient(patient.id, patient.queueNumber)}
                               className="px-3 py-1 bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 transition-colors text-sm"
                             >
                               Missed

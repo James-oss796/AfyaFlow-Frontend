@@ -2,24 +2,28 @@ import { Calendar, Clock, User, Building2 } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 
 interface AppointmentCardProps {
-  patientName: string;
-  department: string;
-  doctor: string;
-  date: string;
-  time: string;
-  status: 'waiting' | 'called' | 'completed' | 'missed' | 'confirmed' | 'cancelled' | 'in-progress';
+  patientName?: string;
+  department?: string;
+  doctor?: string;
+  date?: string;
+  time?: string;
+  status?: 'waiting' | 'called' | 'completed' | 'missed' | 'confirmed' | 'cancelled' | 'in-progress';
   queueNumber?: string;
 }
 
 export function AppointmentCard({ 
-  patientName, 
-  department, 
-  doctor, 
-  date, 
-  time, 
-  status,
+  patientName = 'Unknown',
+  department = 'Unknown',
+  doctor = 'Unknown',
+  date = 'Unknown',
+  time = 'Unknown',
+  status = 'waiting',
   queueNumber 
 }: AppointmentCardProps) {
+
+  // Safe capitalized status
+  const statusText = status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Waiting';
+
   return (
     <div className="bg-white rounded-lg border border-border p-5 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-4">
@@ -30,7 +34,7 @@ export function AppointmentCard({
           )}
         </div>
         <StatusBadge status={status}>
-          {status.charAt(0).toUpperCase() + status.slice(1)}
+          {statusText}
         </StatusBadge>
       </div>
       

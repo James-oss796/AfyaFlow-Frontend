@@ -1,13 +1,19 @@
-import { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Activity, Bell, LogOut, UserPlus, Clock, Calendar, Users, Search } from 'lucide-react';
 import { StatCard } from '../components/StatCard';
 import { AppointmentCard } from '../components/AppointmentCard';
 import { PatientCard } from '../components/PatientCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@radix-ui/react-dialog';
+import { clearAccessToken, getCurrentRole } from '../../lib/authStorage';
 
 export function ReceptionistDashboard() {
   const navigate = useNavigate();
+  // useEffect(() => {
+  //   if (getCurrentRole() !== 'RECEPTIONIST') {
+  //     navigate('/login');
+  //   }
+  // }, [navigate]);
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [patientForm, setPatientForm] = useState({
     fullName: '',
@@ -87,7 +93,10 @@ export function ReceptionistDashboard() {
               </div>
             </div>
             <button 
-              onClick={() => navigate('/')}
+              onClick={() => {
+                clearAccessToken();
+                navigate('/');
+              }}
               className="p-2 hover:bg-muted rounded-lg transition-colors"
             >
               <LogOut className="w-5 h-5 text-muted-foreground" />

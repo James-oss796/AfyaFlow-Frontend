@@ -17,6 +17,21 @@ export default defineConfig({
     },
   },
 
+  server: {
+    proxy: {
+      // Backend endpoints (Spring Boot runs on 8080)
+      '/auth': 'http://localhost:8080',
+      '/patients': 'http://localhost:8080',
+      '/doctors': 'http://localhost:8080',
+      '/departments': 'http://localhost:8080',
+      '/appointments': 'http://localhost:8080',
+      '/queue': 'http://localhost:8080',
+      '/admin': 'http://localhost:8080',
+      '/appointments/available-slots': 'http://localhost:8080',
+      '/logs': 'http://localhost:8080',
+    },
+  },
+
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
 })

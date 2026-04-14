@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Activity, Eye, EyeOff, Mail, Lock, User, Phone } from 'lucide-react';
+import { Activity, Eye, EyeOff, Mail, Lock, User, Phone, MapPin, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { registerApi, roleToRoute } from '../../lib/api';
+import { setAuthSession } from '../../lib/authStorage';
 
 export function Register() {
   const navigate = useNavigate();
@@ -13,10 +15,49 @@ export function Register() {
     phone: '',
     password: '',
     confirmPassword: '',
+    dob: '',
+    gender: 'MALE' as const,
+    address: '',
   });
+  const [county, setCounty] = useState('');
+const [location, setLocation] = useState('');
+const [errors, setErrors] = useState<{ dob?: string }>({});
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const kenyaLocations: Record<string, string[]> = {
+  Nairobi: ['Westlands', 'Kasarani', 'Embakasi'],
+  Nakuru: ['Njoro', 'Naivasha', 'Gilgil'],
+  Mombasa: ['Nyali', 'Likoni', 'Changamwe'],
+};
+
+
+function getPasswordStrength(password: string) {
+  if (password.length < 6) return { label: 'Very Weak', color: 'bg-red-500', width: '25%' };
+
+  const hasLetters = /[a-zA-Z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSymbols = /[^a-zA-Z0-9]/.test(password);
+
+  if (hasLetters && hasNumbers && hasSymbols) {
+    return { label: 'Strong', color: 'bg-green-500', width: '100%' };
+  }
+
+  if (hasLetters && hasNumbers) {
+    return { label: 'Medium', color: 'bg-orange-400', width: '60%' };
+  }
+
+  return { label: 'Weak', color: 'bg-red-400', width: '40%' };
+}
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const today = new Date();
+const dobDate = new Date(formData.dob);
+
+if (dobDate > today) {
+  setErrors({ dob: 'Date of birth cannot be in the future' });
+  return;
+}
     
     if (formData.password !== formData.confirmPassword) {
       toast.error('Passwords do not match');
@@ -28,9 +69,32 @@ export function Register() {
       return;
     }
 
-    // Mock registration
-    toast.success('Registration successful! Please login.');
-    navigate('/login');
+    const nameParts = formData.fullName.trim().split(/\s+/);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    if (!firstName || !lastName) {
+      toast.error('Please enter first and last name');
+      return;
+    }
+
+    try {
+      const res = await registerApi({
+        firstName,
+        lastName,
+        email: formData.email,
+        phoneNumber: formData.phone,
+        password: formData.password,
+        dob: formData.dob,
+        gender: formData.gender,
+        address: `${county}, ${location}`,
+      });
+      setAuthSession(res.accessToken, res.role, res.userId);
+      toast.success('Registration successful!');
+      navigate(roleToRoute(res.role));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Registration failed';
+      toast.error(message);
+    }
   };
 
   return (
@@ -105,6 +169,81 @@ export function Register() {
               </div>
             </div>
 
+            {/* Date of Birth */}
+            <div>
+              <label htmlFor="dob" className="block text-sm font-medium mb-2">
+                Date of Birth
+              </label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  id="dob"
+                  type="date"
+                  value={formData.dob}
+                  onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+                  className="w-full pl-10 pr-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  required
+                />
+              
+              </div>
+                {errors.dob && (
+  <p className="text-red-500 text-sm mt-1">{errors.dob}</p>
+)}
+            </div>
+
+            {/* Gender */}
+            <div>
+              <label htmlFor="gender" className="block text-sm font-medium mb-2">
+                Gender
+              </label>
+              <select
+                id="gender"
+                value={formData.gender}
+                onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'MALE' | 'FEMALE' | 'OTHER' })}
+                className="w-full px-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                required
+              >
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+
+            {/* Address */}
+            <div>
+  <label className="block text-sm font-medium mb-2">County</label>
+  <select
+    value={county}
+    onChange={(e) => {
+      setCounty(e.target.value);
+      setLocation('');
+    }}
+    className="w-full px-4 py-3 bg-muted border border-border rounded-lg"
+    required
+  >
+    <option value="">Select County</option>
+    {Object.keys(kenyaLocations).map((c) => (
+      <option key={c} value={c}>{c}</option>
+    ))}
+  </select>
+</div>
+
+<div>
+  <label className="block text-sm font-medium mb-2">Location</label>
+  <select
+    value={location}
+    onChange={(e) => setLocation(e.target.value)}
+    className="w-full px-4 py-3 bg-muted border border-border rounded-lg"
+    required
+    disabled={!county}
+  >
+    <option value="">Select Location</option>
+    {county && kenyaLocations[county].map((loc) => (
+      <option key={loc} value={loc}>{loc}</option>
+    ))}
+  </select>
+</div>
+
             {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium mb-2">
@@ -129,6 +268,22 @@ export function Register() {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+               {formData.password && (
+  (() => {
+    const strength = getPasswordStrength(formData.password);
+    return (
+      <div className="mt-2">
+        <div className="w-full h-2 bg-gray-200 rounded">
+          <div
+            className={`h-2 rounded ${strength.color}`}
+            style={{ width: strength.width }}
+          />
+        </div>
+        <p className="text-xs mt-1 text-muted-foreground">{strength.label}</p>
+      </div>
+    );
+  })()
+)}
             </div>
 
             {/* Confirm Password */}

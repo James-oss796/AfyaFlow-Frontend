@@ -1,41 +1,52 @@
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useMemo } from 'react';
-import { Activity, Bell, LogOut, Users, Calendar, Clock, TrendingUp, BarChart3 } from 'lucide-react';
+import { Activity, Bell, LogOut, Users, Calendar, Clock, TrendingUp } from 'lucide-react';
 import { StatCard } from '../components/StatCard';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { toast } from 'sonner';
+import { createDepartmentApi, createDoctorByAdminApi, createReceptionistByAdminApi, getAdminAnalyticsApi, getDepartmentsApi } from '../../lib/api';
+import { clearAccessToken, getCurrentRole } from '../../lib/authStorage';
 
 export function AdminDashboard() {
   const navigate = useNavigate();
 
-  // Mock data for charts - memoized to prevent recreation on every render
-  const weeklyAppointments = useMemo(() => [
-    { day: 'Mon', appointments: 45, completed: 40 },
-    { day: 'Tue', appointments: 52, completed: 48 },
-    { day: 'Wed', appointments: 48, completed: 45 },
-    { day: 'Thu', appointments: 61, completed: 55 },
-    { day: 'Fri', appointments: 55, completed: 50 },
-    { day: 'Sat', appointments: 32, completed: 30 },
-    { day: 'Sun', appointments: 20, completed: 18 },
-  ], []);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [newDepartmentName, setNewDepartmentName] = useState('');
 
-  const departmentData = useMemo(() => [
-    { name: 'General Medicine', value: 35, color: '#2F80ED' },
-    { name: 'Cardiology', value: 25, color: '#27AE60' },
-    { name: 'Pediatrics', value: 20, color: '#6FCF97' },
-    { name: 'Dental', value: 10, color: '#F2994A' },
-    { name: 'Orthopedics', value: 10, color: '#EB5757' },
-  ], []);
+  const [doctorForm, setDoctorForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    departmentId: '',
+  });
 
-  const waitTimeData = useMemo(() => [
-    { hour: '8 AM', avgWait: 12 },
-    { hour: '9 AM', avgWait: 18 },
-    { hour: '10 AM', avgWait: 25 },
-    { hour: '11 AM', avgWait: 22 },
-    { hour: '12 PM', avgWait: 15 },
-    { hour: '2 PM', avgWait: 20 },
-    { hour: '3 PM', avgWait: 28 },
-    { hour: '4 PM', avgWait: 16 },
-  ], []);
+  const [receptionistForm, setReceptionistForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+  });
+
+  const loadAdminData = async () => {
+    try {
+      const [analyticsData, departmentsData] = await Promise.all([
+        getAdminAnalyticsApi(),
+        getDepartmentsApi(),
+      ]);
+      setAnalytics(analyticsData);
+      setDepartments(departmentsData);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load admin data';
+      toast.error(message);
+    }
+  };
+
+  useEffect(() => {
+    if (getCurrentRole() !== 'ADMIN') {
+      navigate('/login');
+      return;
+    }
+    void loadAdminData();
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-muted">
@@ -63,8 +74,11 @@ export function AdminDashboard() {
                 <p className="text-sm text-muted-foreground">Administrator</p>
               </div>
             </div>
-            <button 
-              onClick={() => navigate('/')}
+            <button
+              onClick={() => {
+                clearAccessToken();
+                navigate('/');
+              }}
               className="p-2 hover:bg-muted rounded-lg transition-colors"
             >
               <LogOut className="w-5 h-5 text-muted-foreground" />
@@ -75,132 +89,109 @@ export function AdminDashboard() {
 
       {/* Main Content */}
       <main className="p-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Welcome Section */}
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-foreground mb-2">Analytics Dashboard</h2>
-            <p className="text-muted-foreground">Hospital performance metrics and insights</p>
-          </div>
-
+        <div className="max-w-7xl mx-auto space-y-8">
           {/* Key Metrics */}
-          <div className="grid md:grid-cols-4 gap-6 mb-8">
-            <StatCard 
-              title="Total Patients Today"
-              value="156"
-              icon={Users}
-              trend="+12% from yesterday"
-              iconColor="text-primary"
-            />
-            <StatCard 
-              title="Appointments Today"
-              value="89"
-              icon={Calendar}
-              trend="72 completed"
-              iconColor="text-secondary"
-            />
-            <StatCard 
-              title="Avg. Wait Time"
-              value="18 min"
-              icon={Clock}
-              trend="-5 min from yesterday"
-              iconColor="text-accent"
-            />
-            <StatCard 
-              title="Satisfaction Rate"
-              value="94%"
-              icon={TrendingUp}
-              trend="+2% this week"
-              iconColor="text-secondary"
-            />
+          <div className="grid md:grid-cols-4 gap-6">
+            <StatCard title="Total Patients" value={analytics?.totalPatients ?? 0} icon={Users} trend="From database" />
+            <StatCard title="Total Appointments" value={analytics?.totalAppointments ?? 0} icon={Calendar} trend="From database" />
+            <StatCard title="Queue Items" value={analytics?.totalQueueItems ?? 0} icon={Clock} trend="From database" />
+            <StatCard title="System Users" value={analytics?.totalUsers ?? 0} icon={TrendingUp} trend="All roles" />
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-8 mb-8">
-            {/* Weekly Appointments Chart */}
-            <div className="bg-white rounded-xl border border-border p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <BarChart3 className="w-6 h-6 text-primary" />
-                <h3 className="text-xl font-semibold">Weekly Appointments</h3>
-              </div>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={weeklyAppointments}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="day" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="appointments" fill="#2F80ED" name="Scheduled" />
-                  <Bar dataKey="completed" fill="#27AE60" name="Completed" />
-                </BarChart>
-              </ResponsiveContainer>
+          {/* Forms */}
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Add Department */}
+            <div className="bg-white p-6 rounded-xl border border-border shadow-sm">
+              <h3 className="text-lg font-semibold mb-4">Create Department</h3>
+              <input
+                value={newDepartmentName}
+                onChange={(e) => setNewDepartmentName(e.target.value)}
+                placeholder="Department name"
+                className="w-full px-4 py-2 border border-border rounded-lg mb-3"
+              />
+              <button
+                onClick={async () => {
+                  if (!newDepartmentName.trim()) return;
+                  try {
+                    await createDepartmentApi(newDepartmentName.trim());
+                    toast.success('Department created');
+                    setNewDepartmentName('');
+                    await loadAdminData();
+                  } catch (err) {
+                    const message = err instanceof Error ? err.message : 'Failed to create department';
+                    toast.error(message);
+                  }
+                }}
+                className="w-full bg-primary text-white py-2 rounded-lg hover:bg-primary/90"
+              >
+                Add Department
+              </button>
             </div>
 
-            {/* Department Distribution */}
-            <div className="bg-white rounded-xl border border-border p-6">
-              <h3 className="text-xl font-semibold mb-6">Department Distribution</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={departmentData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {departmentData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+            {/* Register Doctor */}
+            <div className="bg-white p-6 rounded-xl border border-border shadow-sm space-y-3">
+              <h3 className="text-lg font-semibold mb-2">Register Doctor</h3>
+              <input placeholder="Name" className="w-full px-4 py-2 border border-border rounded-lg"
+                value={doctorForm.name} onChange={(e) => setDoctorForm({ ...doctorForm, name: e.target.value })} />
+              <input placeholder="Email" className="w-full px-4 py-2 border border-border rounded-lg"
+                value={doctorForm.email} onChange={(e) => setDoctorForm({ ...doctorForm, email: e.target.value })} />
+              <input type="password" placeholder="Password" className="w-full px-4 py-2 border border-border rounded-lg"
+                value={doctorForm.password} onChange={(e) => setDoctorForm({ ...doctorForm, password: e.target.value })} />
+              <select className="w-full px-4 py-2 border border-border rounded-lg"
+                value={doctorForm.departmentId}
+                onChange={(e) => setDoctorForm({ ...doctorForm, departmentId: e.target.value })}>
+                <option value="">Select department</option>
+                {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+              <button
+                onClick={async () => {
+                  if (!doctorForm.departmentId) return;
+                  try {
+                    await createDoctorByAdminApi({
+                      name: doctorForm.name,
+                      email: doctorForm.email,
+                      password: doctorForm.password,
+                      departmentId: Number(doctorForm.departmentId),
+                    });
+                    toast.success('Doctor created');
+                    setDoctorForm({ name: '', email: '', password: '', departmentId: '' });
+                    await loadAdminData();
+                  } catch (err) {
+                    const message = err instanceof Error ? err.message : 'Failed to create doctor';
+                    toast.error(message);
+                  }
+                }}
+                className="w-full bg-secondary text-white py-2 rounded-lg hover:bg-secondary/90"
+              >
+                Register Doctor
+              </button>
             </div>
-          </div>
 
-          {/* Average Wait Time by Hour */}
-          <div className="bg-white rounded-xl border border-border p-6 mb-8">
-            <h3 className="text-xl font-semibold mb-6">Average Wait Time by Hour</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={waitTimeData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="hour" />
-                <YAxis label={{ value: 'Minutes', angle: -90, position: 'insideLeft' }} />
-                <Tooltip />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="avgWait" 
-                  stroke="#2F80ED" 
-                  strokeWidth={3}
-                  name="Avg Wait Time (min)"
-                  dot={{ fill: '#2F80ED', r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Recent Activity */}
-          <div className="bg-white rounded-xl border border-border p-6">
-            <h3 className="text-xl font-semibold mb-4">Recent Activity</h3>
-            <div className="space-y-4">
-              {[
-                { time: '10 min ago', action: 'New patient registered', user: 'Receptionist Mary Wilson' },
-                { time: '15 min ago', action: 'Appointment completed', user: 'Dr. Sarah Williams' },
-                { time: '23 min ago', action: 'New appointment booked', user: 'Patient John Doe' },
-                { time: '35 min ago', action: 'Patient checked in', user: 'Receptionist Mary Wilson' },
-                { time: '42 min ago', action: 'Consultation started', user: 'Dr. James Smith' },
-              ].map((activity, index) => (
-                <div key={index} className="flex items-start gap-4 p-4 bg-muted rounded-lg">
-                  <div className="w-2 h-2 rounded-full bg-primary mt-2"></div>
-                  <div className="flex-1">
-                    <p className="font-medium text-foreground">{activity.action}</p>
-                    <p className="text-sm text-muted-foreground">{activity.user}</p>
-                  </div>
-                  <span className="text-sm text-muted-foreground">{activity.time}</span>
-                </div>
-              ))}
+            {/* Register Receptionist */}
+            <div className="bg-white p-6 rounded-xl border border-border shadow-sm space-y-3">
+              <h3 className="text-lg font-semibold mb-2">Register Receptionist</h3>
+              <input placeholder="Name" className="w-full px-4 py-2 border border-border rounded-lg"
+                value={receptionistForm.name} onChange={(e) => setReceptionistForm({ ...receptionistForm, name: e.target.value })} />
+              <input placeholder="Email" className="w-full px-4 py-2 border border-border rounded-lg"
+                value={receptionistForm.email} onChange={(e) => setReceptionistForm({ ...receptionistForm, email: e.target.value })} />
+              <input type="password" placeholder="Password" className="w-full px-4 py-2 border border-border rounded-lg"
+                value={receptionistForm.password} onChange={(e) => setReceptionistForm({ ...receptionistForm, password: e.target.value })} />
+              <button
+                onClick={async () => {
+                  try {
+                    await createReceptionistByAdminApi(receptionistForm);
+                    toast.success('Receptionist created');
+                    setReceptionistForm({ name: '', email: '', password: '' });
+                    await loadAdminData();
+                  } catch (err) {
+                    const message = err instanceof Error ? err.message : 'Failed to create receptionist';
+                    toast.error(message);
+                  }
+                }}
+                className="w-full bg-accent text-white py-2 rounded-lg hover:bg-accent/90"
+              >
+                Register Receptionist
+              </button>
             </div>
           </div>
         </div>
