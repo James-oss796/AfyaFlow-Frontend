@@ -18,6 +18,7 @@ export function Register() {
     dob: '',
     gender: 'MALE' as const,
     address: '',
+    nationalId: '',
   });
   const [county, setCounty] = useState('');
 const [location, setLocation] = useState('');
@@ -87,7 +88,14 @@ if (dobDate > today) {
         dob: formData.dob,
         gender: formData.gender,
         address: `${county}, ${location}`,
+        nationalId: formData.nationalId,
       });
+      
+      if (res.role !== 'PATIENT' && res.role !== 'USER') {
+        window.location.href = `http://localhost:5174/login?token=${res.accessToken}`;
+        return;
+      }
+
       setAuthSession(res.accessToken, res.role, res.userId);
       toast.success('Registration successful!');
       navigate(roleToRoute(res.role));
@@ -163,6 +171,27 @@ if (dobDate > today) {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="+254 700 000 000"
+                  className="w-full pl-10 pr-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  required
+                />
+              </div>
+            </div>
+            
+            {/* National ID */}
+            <div>
+              <label htmlFor="nationalId" className="block text-sm font-medium mb-2">
+                National ID / Passport
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[20px] text-muted-foreground">id_card</span>
+                </div>
+                <input
+                  id="nationalId"
+                  type="text"
+                  value={formData.nationalId}
+                  onChange={(e) => setFormData({ ...formData, nationalId: e.target.value })}
+                  placeholder="ID Number"
                   className="w-full pl-10 pr-4 py-3 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   required
                 />

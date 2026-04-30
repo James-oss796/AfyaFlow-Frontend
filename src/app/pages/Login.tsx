@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Activity, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { loginApi, roleToRoute } from '../../lib/api';
 import { setAuthSession } from '../../lib/authStorage';
+import { hasBookingData } from '../../lib/bookingService';
 
 export function Login() {
   const navigate = useNavigate();
@@ -11,14 +12,62 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  useEffect(() => {
+    // Intercept SSO token
+    const searchParams = new URLSearchParams(window.location.search);
+    const token = searchParams.get('token');
+    
+    if (token) {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        
+        const payload = JSON.parse(jsonPayload);
+        const role = payload.role || '';
+        const userId = payload.userId || payload.id || 0;
+        
+        setAuthSession(token, role, userId);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        toast.success("Authentication successful");
+        navigate(roleToRoute(role));
+      } catch (err) {
+        console.error("Invalid token parsing", err);
+      }
+    }
+  }, [navigate]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
       const res = await loginApi({ email, password });
+      
+      if (res.role !== 'PATIENT' && res.role !== 'USER') {
+        window.location.href = `http://localhost:5174/login?token=${res.accessToken}`;
+        return;
+      }
+
+      // ========== BOOKING DATA RESTORATION ==========
+      /**
+       * After successful login, check if user has a booking in progress.
+       * If yes, redirect to booking page to complete it.
+       * If no, go to patient dashboard.
+       * 
+       * This ensures user doesn't lose booking data if they log out mid-booking.
+       */
       setAuthSession(res.accessToken, res.role, res.userId);
       toast.success('Login successful!');
-      navigate(roleToRoute(res.role));
+      
+      // Check if user has pending booking
+      if (hasBookingData()) {
+        console.log('Booking data found, redirecting to complete booking');
+        navigate('/book-appointment'); // Go back to booking with data restored
+      } else {
+        navigate(roleToRoute(res.role)); // Normal flow to dashboard
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
       toast.error("Login Failed");

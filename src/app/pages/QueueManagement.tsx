@@ -19,6 +19,7 @@ export function QueueManagement() {
 
   const [queueData, setQueueData] = useState<QueueApiResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [search, setSearch] = useState('');
 
   const refreshQueue = async () => {
     setIsLoading(true);
@@ -90,9 +91,14 @@ export function QueueManagement() {
     });
   }, [queueData]);
 
-  const filteredQueue = filterStatus === 'all'
-    ? normalized
-    : normalized.filter(q => q.status === filterStatus);
+  const filteredQueue = normalized
+    .filter(q => filterStatus === 'all' || q.status === filterStatus)
+    .filter(q => 
+      !search || 
+      q.patientName.toLowerCase().includes(search.toLowerCase()) ||
+      q.queueNumber.toString().includes(search) ||
+      q.department.toLowerCase().includes(search.toLowerCase())
+    );
 
   const stats = {
     waiting: normalized.filter(q => q.status === 'waiting').length,
@@ -203,6 +209,8 @@ export function QueueManagement() {
                 <input
                   type="text"
                   placeholder="Search queue..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
                   className="pl-10 pr-4 py-2 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>

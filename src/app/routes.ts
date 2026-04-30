@@ -8,7 +8,9 @@ import { ReceptionistDashboard } from "./pages/ReceptionistDashboard";
 import { DoctorDashboard } from "./pages/DoctorDashboard";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { QueueManagement } from "./pages/QueueManagement";
+import { SetPassword } from "./pages/SetPassword";
 import { NotFound } from "./pages/NotFound";
+import { StaffRedirect } from "./components/StaffRedirect";
 
 export const router = createBrowserRouter([
   {
@@ -24,6 +26,10 @@ export const router = createBrowserRouter([
     Component: Register,
   },
   {
+    path: "/set-password",
+    Component: SetPassword,
+  },
+  {
     path: "/patient",
     Component: PatientDashboard,
   },
@@ -33,15 +39,15 @@ export const router = createBrowserRouter([
   },
   {
     path: "/receptionist",
-    Component: ReceptionistDashboard,
+    Component: StaffRedirect,
   },
   {
     path: "/doctor",
-    Component: DoctorDashboard,
+    Component: StaffRedirect,
   },
   {
     path: "/admin",
-    Component: AdminDashboard,
+    Component: StaffRedirect,
   },
   {
     path: "/queue",

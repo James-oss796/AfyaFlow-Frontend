@@ -76,8 +76,8 @@ export async function apiRequest<T>(
   if (!res.ok) {
     let message = res.statusText;
     if (isJson) {
-      const body = (await res.json()) as ApiErrorBody;
-      message = body?.message || message;
+      const body = (await res.json()) as any;
+      message = body?.details || body?.message || message;
     } else {
       message = await res.text();
     }
@@ -98,6 +98,7 @@ export async function apiRequest<T>(
 export function roleToRoute(role: string): string {
   switch (role) {
     case 'PATIENT':
+    case 'USER':
       return '/patient';
     case 'RECEPTIONIST':
       return '/receptionist';
@@ -205,13 +206,24 @@ export function getAdminLogsApi() {
   return apiRequest<AdminLogEntry[]>('/admin/logs', { method: 'GET' });
 }
 
-export function getAvailableSlotsApi(doctorId: number, date: string) {
-  return apiRequest<string[]>(`/appointments/available-slots?doctorId=${doctorId}&date=${date}`, { method: 'GET' });
+/**
+ * Fetch available time slots for a specific doctor (Staff Flow) or Department (Patient Flow)
+ */
+export function getAvailableSlotsApi(date: string, options: { doctorId?: number; departmentId?: number }) {
+  let query = `date=${date}`;
+  if (options.doctorId) query += `&doctorId=${options.doctorId}`;
+  if (options.departmentId) query += `&departmentId=${options.departmentId}`;
+  
+  return apiRequest<string[]>(`/appointments/available-slots?${query}`, { method: 'GET' });
 }
 
+/**
+ * Book an appointment. Supports doctor-direct or department-auto-assign.
+ */
 export function bookAppointmentApi(body: {
-  doctorId: number;
-  date: string; // YYYY-MM-DDf 
+  doctorId?: number;
+  departmentId?: number;
+  date: string; // YYYY-MM-DD
   time: string; // HH:mm
 }) {
   return apiRequest<Appointment>('/appointments', {

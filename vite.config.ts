@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
-import path from 'path'
+import { fileURLToPath, URL } from 'url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 
@@ -13,22 +13,47 @@ export default defineConfig({
   resolve: {
     alias: {
       // Alias @ to the src directory
-      '@': path.resolve(__dirname, './src'),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
 
   server: {
+    port: 5173,
+    strictPort: true,
     proxy: {
       // Backend endpoints (Spring Boot runs on 8080)
-      '/auth': 'http://localhost:8080',
-      '/patients': 'http://localhost:8080',
-      '/doctors': 'http://localhost:8080',
-      '/departments': 'http://localhost:8080',
-      '/appointments': 'http://localhost:8080',
-      '/queue': 'http://localhost:8080',
-      '/admin': 'http://localhost:8080',
-      '/appointments/available-slots': 'http://localhost:8080',
-      '/logs': 'http://localhost:8080',
+      '/auth': {
+        target: 'http://localhost:8080',
+        rewrite: (path) => path.replace(/^\/auth/, '/api/auth')
+      },
+      '/patients': {
+        target: 'http://localhost:8080',
+        rewrite: (path) => path.replace(/^\/patients/, '/api/patients')
+      },
+      '/doctors': {
+        target: 'http://localhost:8080',
+        rewrite: (path) => path.replace(/^\/doctors/, '/api/doctors')
+      },
+      '/departments': {
+        target: 'http://localhost:8080',
+        rewrite: (path) => path.replace(/^\/departments/, '/api/departments')
+      },
+      '/appointments': {
+        target: 'http://localhost:8080',
+        rewrite: (path) => path.replace(/^\/appointments/, '/api/appointments')
+      },
+      '/queue': {
+        target: 'http://localhost:8080',
+        rewrite: (path) => path.replace(/^\/queue/, '/api/queue')
+      },
+      '/admin': {
+        target: 'http://localhost:8080',
+        rewrite: (path) => path.replace(/^\/admin/, '/api/admin')
+      },
+      '/logs': {
+        target: 'http://localhost:8080',
+        rewrite: (path) => path.replace(/^\/logs/, '/api/logs')
+      },
     },
   },
 
